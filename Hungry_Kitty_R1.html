@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hungry Kitty R1</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111; 
+            font-family: 'Courier New', Courier, monospace;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        canvas { display: block; }
+        
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: all;
+            z-index: 20;
+            transition: opacity 0.5s;
+        }
+        
+        .hidden { display: none !important; }
+        
+        h1 { color: #a29bfe; text-shadow: 0 0 15px #6c5ce7; font-size: 2.5rem; margin: 0 0 10px 0; text-align: center; }
+        p { color: #dfe6e9; text-align: center; padding: 0 20px; max-width: 600px; line-height: 1.5; font-size: 1.1rem; }
+        
+        .emoji-art { font-size: 4rem; margin: 20px 0; }
+        
+        .slider-container {
+            margin-top: 20px;
+            text-align: center;
+            color: #dfe6e9;
+            font-family: inherit;
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 15px;
+            border: 1px solid rgba(162, 155, 254, 0.3);
+        }
+        
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 200px;
+            height: 10px;
+            border-radius: 5px;
+            background: #dfe6e9;
+            outline: none;
+            margin: 15px 0;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #6c5ce7;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(108, 92, 231, 0.8);
+        }
+
+        button {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            background: linear-gradient(45deg, #6c5ce7, #a29bfe);
+            border: none;
+            color: white;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(108, 92, 231, 0.4);
+            font-family: inherit;
+            font-weight: bold;
+            outline: none;
+        }
+        button:active { transform: scale(0.95); }
+
+        #hud {
+            padding: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 0 #000;
+        }
+        
+        #safety-msg {
+            color: #fab1a0;
+            font-size: 1rem;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        #footer {
+            position: absolute;
+            bottom: 60px; 
+            width: 100%;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.9rem;
+            pointer-events: none; 
+            text-shadow: 1px 1px 0 #000;
+            z-index: 50; 
+        }
+
+        #joystick-zone {
+            width: 140px; height: 140px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            position: absolute; bottom: 40px; left: 40px;
+            pointer-events: auto;
+            display: none;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        #joystick-knob {
+            width: 50px; height: 50px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px white;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen" class="screen">
+        <h1>Hungry Kitty</h1>
+        <p>1. Collect Fish Treats 🐟</p>
+        <p>2. Reach the snowy summit 🏔️</p>
+        <p>3. Avoid the Puppies 🐶</p>
+
+        <div class="slider-container">
+            <label for="diff-slider">Difficulty: <span id="diff-label" style="color:#a29bfe; font-weight:bold;">Normal</span></label><br>
+            <input type="range" id="diff-slider" min="1" max="3" value="2" step="1" oninput="updateDiffLabel()">
+        </div>
+
+        <button id="start-btn" onclick="startGame()">Wake Up & Listen</button>
+    </div>
+
+    <div id="fail-screen" class="screen hidden">
+        <h1 style="color: #ff7675">CAUGHT!</h1>
+        <div class="emoji-art">🙀</div>
+        <p>The puppies were just hungry too...</p>
+        <p>But you didn't have enough snacks!</p>
+        <button onclick="location.reload()">Reset World</button>
+    </div>
+
+    <div id="survival-screen" class="screen hidden">
+        <h1 style="color: #fab1a0">WELL FED!</h1>
+        <div class="emoji-art">😺😸</div>
+        <p>Congratulations! Your kitty found its food for the day!</p>
+        <p>Keep going and get past those hungry pups next time.</p>
+        <button onclick="location.reload()">Play Again</button>
+    </div>
+
+    <div id="win-screen" class="screen hidden">
+        <h1 style="color: #ffeaa7">KITTY VALHALLA</h1>
+        <div class="emoji-art">🔥😺🐶💤</div>
+        <p>Congratulations! Your kitty has reached Kitty Valhalla!</p>
+        <p>The kitty sleeps comfy next to the fire.</p>
+        <p>You got so many snacks...</p>
+        <p>Even the puppy looks happy here.</p>
+        <button onclick="location.reload()">Rest Now</button>
+    </div>
+
+    <div id="footer">Created by Arthur Fedderson &copy; Art4Tech</div>
+
+    <div id="ui-layer">
+        <div id="hud">
+            <div id="score-text">Treats: 0 / 20</div>
+            <div id="safety-msg">⚠️ Dogs waking up...</div>
+        </div>
+        <div id="joystick-zone"><div id="joystick-knob"></div></div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+    const MAP_WIDTH = 2000;
+    const MAP_HEIGHT = 4500;
+    const BIOME_HEIGHT = MAP_HEIGHT / 3;
+
+    // --- CONFIGURATION ---
+    const BASE_DOGS_GRASS = 12;   
+    const BASE_DOGS_FOREST = 24;  
+    const BASE_DOGS_SNOW = 38;    
+
+    const BASE_TREATS_GRASS = 12; 
+    const BASE_TREATS_FOREST = 10; 
+    const BASE_TREATS_SNOW = 8; 
+    
+    let MAX_TREATS = 25;
+    let difficultyLevel = 2;
+
+    let canvas, ctx, width, height;
+    let player, camera, keys, joystick;
+    let walls = [], treats = [], dogs = [], particles = [];
+    let cabin = null;
+    let score = 0, gameActive = false, lastTime = 0;
+    let graceTimer = 0; 
+
+    let audioCtx, masterGain, musicInterval, noteCounter = 0, noiseBuffer;
+
+    window.onload = function() {
+        try {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            keys = { w: false, a: false, s: false, d: false };
+            joystick = { active: false, dx: 0, dy: 0, originX: 0, originY: 0 };
+            window.addEventListener('resize', resize);
+            resize();
+            window.addEventListener('keydown', e => handleKey(e, true));
+            window.addEventListener('keyup', e => handleKey(e, false));
+            setupJoystick();
+            updateDiffLabel(); 
+        } catch(e) {
+            alert("Init Error: " + e.message);
+        }
+    };
+
+    window.updateDiffLabel = function() {
+        const val = document.getElementById('diff-slider').value;
+        const label = document.getElementById('diff-label');
+        if(val == 1) label.innerText = "Easy (15 Treats)";
+        else if(val == 2) label.innerText = "Normal (25 Treats)";
+        else if(val == 3) label.innerText = "Hard (40 Treats)";
+    }
+
+    function applyDifficulty() {
+        const val = parseInt(document.getElementById('diff-slider').value);
+        difficultyLevel = val;
+        if(val == 1) MAX_TREATS = 15;
+        if(val == 2) MAX_TREATS = 25;
+        if(val == 3) MAX_TREATS = 40;
+    }
+
+    function startGame() {
+        const startScreen = document.getElementById('start-screen');
+        if(startScreen) startScreen.classList.add('hidden');
+        
+        applyDifficulty(); 
+        try { startMusicEngine(); } catch(e) { console.log("No Audio"); }
+        
+        try {
+            resetWorld();
+            graceTimer = 2.0; 
+            document.getElementById('safety-msg').style.opacity = 1;
+            gameActive = true;
+            lastTime = Date.now();
+            requestAnimationFrame(loop);
+        } catch(e) {
+            alert("Game Start Error: " + e.message);
+        }
+    }
+
+    function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+        if('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            const joy = document.getElementById('joystick-zone');
+            if(joy) joy.style.display = 'block';
+        }
+    }
+
+    function handleKey(e, state) {
+        if(e.key === 'w' || e.key === 'ArrowUp') keys.w = state;
+        if(e.key === 'a' || e.key === 'ArrowLeft') keys.a = state;
+        if(e.key === 's' || e.key === 'ArrowDown') keys.s = state;
+        if(e.key === 'd' || e.key === 'ArrowRight') keys.d = state;
+    }
+
+    function setupJoystick() {
+        const joyZone = document.getElementById('joystick-zone');
+        if(!joyZone) return;
+
+        joyZone.addEventListener('touchstart', e => {
+            e.preventDefault();
+            const t = e.changedTouches[0];
+            joystick.active = true;
+            const r = joyZone.getBoundingClientRect();
+            joystick.originX = r.left + r.width/2;
+            joystick.originY = r.top + r.height/2;
+            updateJoy(t.clientX, t.clientY);
+        }, {passive: false});
+
+        joyZone.addEventListener('touchmove', e => {
+            e.preventDefault();
+            if(joystick.active) updateJoy(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+        }, {passive: false});
+
+        joyZone.addEventListener('touchend', e => {
+            e.preventDefault();
+            joystick.active = false;
+            joystick.dx = 0; joystick.dy = 0;
+            const knob = document.getElementById('joystick-knob');
+            if(knob) knob.style.transform = `translate(-50%, -50%)`;
+        });
+
+        function updateJoy(mx, my) {
+            const knob = document.getElementById('joystick-knob');
+            if(!knob) return;
+            const max = 50;
+            let dx = mx - joystick.originX;
+            let dy = my - joystick.originY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if(dist > max) { dx = (dx/dist)*max; dy = (dy/dist)*max; }
+            knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+            joystick.dx = dx/max;
+            joystick.dy = dy/max;
+        }
+    }
+
+    function resetWorld() {
+        let pSpeed = 3 + difficultyLevel; 
+        
+        player = { x: MAP_WIDTH/2, y: MAP_HEIGHT - 200, r: 14, speed: pSpeed, angle: -Math.PI/2 };
+        camera = { x: 0, y: 0 };
+        score = 0;
+        
+        walls = []; treats = []; dogs = []; particles = [];
+
+        let dogMult = 1.0;
+        let treatMult = 1.0;
+        
+        if(difficultyLevel === 1) { dogMult = 0.6; treatMult = 0.7; }
+        if(difficultyLevel === 3) { dogMult = 1.5; treatMult = 1.5; }
+
+        let dGrass = Math.max(1, Math.floor(BASE_DOGS_GRASS * dogMult));
+        let dForest = Math.max(1, Math.floor(BASE_DOGS_FOREST * dogMult));
+        let dSnow = Math.max(1, Math.floor(BASE_DOGS_SNOW * dogMult));
+        
+        let tGrass = Math.max(1, Math.floor(BASE_TREATS_GRASS * treatMult));
+        let tForest = Math.max(1, Math.floor(BASE_TREATS_FOREST * treatMult));
+        let tSnow = Math.max(1, Math.floor(BASE_TREATS_SNOW * treatMult));
+
+        if(tGrass < 5) tGrass = 5;
+        if(tForest < 5) tForest = 5;
+        if(tSnow < 5) tSnow = 5;
+
+        generateBiome(2, 'grass', dGrass, tGrass);   
+        generateBiome(1, 'forest', dForest, tForest);  
+        generateBiome(0, 'snow', dSnow, tSnow);   
+        
+        cabin = { x: MAP_WIDTH/2 - 60, y: 100, w: 120, h: 100 };
+
+        walls.push({x: -50, y: 0, w: 50, h: MAP_HEIGHT, type: 'border'});
+        walls.push({x: MAP_WIDTH, y: 0, w: 50, h: MAP_HEIGHT, type: 'border'});
+        walls.push({x: 0, y: -50, w: MAP_WIDTH, h: 50, type: 'border'});
+        walls.push({x: 0, y: MAP_HEIGHT, w: MAP_WIDTH, h: 50, type: 'border'});
+        
+        updateHUD();
+    }
+
+    function generateBiome(index, type, dogCount, treatCount) {
+        const startY = index * BIOME_HEIGHT;
+        const endY = startY + BIOME_HEIGHT;
+        let wallCount = (type === 'forest') ? 60 : (type === 'grass') ? 35 : 25;
+        
+        for(let i=0; i<wallCount; i++) {
+            const w = 50 + Math.random()*40;
+            const h = 50 + Math.random()*40;
+            const x = Math.random() * (MAP_WIDTH - w);
+            const y = startY + Math.random() * (BIOME_HEIGHT - h);
+            
+            if(y > MAP_HEIGHT - 400 && x > MAP_WIDTH/2 - 200 && x < MAP_WIDTH/2 + 200) continue;
+            if(y < 300) continue; 
+
+            walls.push({ x, y, w, h, type: type });
+        }
+
+        // --- DOGS WITH FATIGUE ---
+        for(let i=0; i<dogCount; i++) {
+            let speedMod = (difficultyLevel === 1) ? -0.3 : (difficultyLevel === 3 ? 0.6 : 0);
+            
+            // TUNED: Base speed lowered slightly (-0.5) for fairness
+            let baseSpeed = (type === 'snow') ? 2.5 : 2.0;
+            
+            let sight = 300; 
+            if(type === 'forest') sight = 450;
+            if(type === 'snow') sight = 600;
+
+            dogs.push({
+                x: Math.random() * MAP_WIDTH,
+                y: startY + Math.random() * BIOME_HEIGHT,
+                maxSpeed: baseSpeed + speedMod,
+                currentSpeed: baseSpeed + speedMod,
+                angle: 0, 
+                state: 'roam', 
+                timer: 0,
+                chaseTimer: 0, // For Fatigue logic
+                type: type,
+                sightRange: sight,
+                minY: startY, 
+                maxY: endY
+            });
+        }
+
+        for(let i=0; i<treatCount; i++) {
+            treats.push({
+                x: Math.random() * (MAP_WIDTH - 20),
+                y: startY + Math.random() * (BIOME_HEIGHT - 20),
+                osc: Math.random() * Math.PI
+            });
+        }
+    }
+
+    function loop() {
+        if(!gameActive) return;
+        try {
+            const now = Date.now();
+            const dt = (now - lastTime)/1000;
+            lastTime = now;
+            update(dt);
+            draw();
+            requestAnimationFrame(loop);
+        } catch(e) {
+            console.log("Loop error:", e);
+        }
+    }
+
+    function update(dt) {
+        if(graceTimer > 0) {
+            graceTimer -= dt;
+            if(graceTimer <= 0) document.getElementById('safety-msg').style.opacity = 0;
+        }
+
+        let dx = 0, dy = 0;
+        if(keys.w) dy = -1; if(keys.s) dy = 1;
+        if(keys.a) dx = -1; if(keys.d) dx = 1;
+        if(joystick.active) { dx = joystick.dx; dy = joystick.dy; }
+        
+        if(!joystick.active && (dx || dy)) {
+            const l = Math.sqrt(dx*dx + dy*dy);
+            dx/=l; dy/=l;
+        }
+
+        let nextX = player.x + dx * player.speed;
+        let nextY = player.y + dy * player.speed;
+
+        let cx=false, cy=false;
+        for(let w of walls) {
+            if(nextX+14>w.x && nextX-14<w.x+w.w && player.y+14>w.y && player.y-14<w.y+w.h) cx=true;
+            if(player.x+14>w.x && player.x-14<w.x+w.w && nextY+14>w.y && nextY-14<w.y+w.h) cy=true;
+        }
+        if(!cx) player.x = nextX;
+        if(!cy) player.y = nextY;
+        if(dx||dy) player.angle = Math.atan2(dy, dx);
+
+        camera.x += (player.x - width/2 - camera.x) * 0.1;
+        camera.y += (player.y - height/2 - camera.y) * 0.1;
+        camera.x = Math.max(0, Math.min(camera.x, MAP_WIDTH - width));
+        camera.y = Math.max(0, Math.min(camera.y, MAP_HEIGHT - height));
+
+        for(let i=treats.length-1; i>=0; i--) {
+            const t = treats[i];
+            t.osc += dt * 3;
+            if(Math.sqrt((player.x-t.x)**2 + (player.y-t.y)**2) < 35) {
+                treats.splice(i,1);
+                score++;
+                updateHUD();
+                playCrunchSound();
+            }
+        }
+
+        if(score >= MAX_TREATS && 
+           player.x > cabin.x && player.x < cabin.x + cabin.w &&
+           player.y > cabin.y && player.y < cabin.y + cabin.h) {
+             endGame('win');
+        }
+
+        // --- DOG AI (With Fatigue) ---
+        for(let d of dogs) {
+            if(graceTimer > 0) continue; 
+
+            const dx = player.x - d.x;
+            const dy = player.y - d.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            
+            let inBiome = (player.y >= d.minY && player.y <= d.maxY);
+
+            // FATIGUE CHECK: If Tired, stay still
+            if(d.state === 'tired') {
+                d.timer -= dt;
+                if(d.timer <= 0) d.state = 'roam'; // Recovery complete
+                continue;
+            }
+
+            if(dist < d.sightRange && inBiome && d.state !== 'tired') {
+                // Start Chase
+                if(d.state !== 'chase') {
+                    d.state = 'chase';
+                    d.chaseTimer = 4.0; // Dogs chase for 4 seconds
+                }
+
+                // FATIGUE LOGIC: Slow down over time
+                d.chaseTimer -= dt;
+                // Speed factor drops from 1.0 to 0.5 as timer hits 0
+                let fatigueFactor = 0.5 + (0.5 * (d.chaseTimer / 4.0));
+                d.currentSpeed = d.maxSpeed * fatigueFactor;
+
+                if(d.chaseTimer <= 0) {
+                    d.state = 'tired'; // Give up
+                    d.timer = 2.0; // Rest for 2s
+                    continue;
+                }
+
+                d.angle = Math.atan2(dy, dx);
+                let mx = Math.cos(d.angle) * d.currentSpeed;
+                let my = Math.sin(d.angle) * d.currentSpeed;
+                
+                let nextDX = d.x + mx;
+                let nextDY = d.y + my;
+
+                let hit = false;
+                for(let w of walls) {
+                    if(nextDX+10>w.x && nextDX-10<w.x+w.w && nextDY+10>w.y && nextDY-10<w.y+w.h) hit=true;
+                }
+                
+                if(nextDY < d.minY || nextDY > d.maxY) hit = true;
+                if(!hit) { d.x = nextDX; d.y = nextDY; }
+
+            } else {
+                d.state = 'roam';
+                d.timer -= dt;
+                if(d.timer<=0) { d.angle = Math.random()*6.28; d.timer = 2; }
+                
+                let mx = Math.cos(d.angle) * 1.5;
+                let my = Math.sin(d.angle) * 1.5;
+                let nextDX = d.x + mx;
+                let nextDY = d.y + my;
+                
+                if(nextDY < d.minY || nextDY > d.maxY) {
+                    d.angle += Math.PI; 
+                } else {
+                    d.x = nextDX;
+                    d.y = nextDY;
+                }
+            }
+            
+            // Collision (Hurtbox slightly smaller than sprite for fairness)
+            if(dist < 25 && d.state !== 'tired') {
+                if(score >= MAX_TREATS) endGame('survival');
+                else endGame('fail');
+            }
+        }
+        
+        if(Math.random() > 0.8) spawnParticle();
+        for(let i=particles.length-1; i>=0; i--) {
+            let p = particles[i];
+            p.x += p.vx; p.y += p.vy; p.life -= 0.01;
+            if(p.life <= 0) particles.splice(i,1);
+        }
+    }
+
+    function spawnParticle() {
+        let type = (camera.y < BIOME_HEIGHT) ? 'snow' : 'pollen';
+        particles.push({
+            x: camera.x + Math.random() * width,
+            y: camera.y - 10,
+            vx: (Math.random()-0.5),
+            vy: (Math.random() * 2 + 1),
+            life: 4,
+            color: type === 'snow' ? 'white' : '#ffeaa7',
+            size: type === 'snow' ? 3 : 2
+        });
+    }
+
+    function updateHUD() {
+        const txt = document.getElementById('score-text');
+        txt.innerText = `Treats: ${score} / ${MAX_TREATS}`;
+        if(score >= MAX_TREATS) {
+            txt.style.color = '#55efc4';
+            txt.innerText += " (Find the secret cabin!)";
+        }
+    }
+
+    function endGame(type) {
+        gameActive = false;
+        if(audioCtx) audioCtx.suspend(); 
+        clearInterval(musicInterval);
+        
+        if(type === 'win') document.getElementById('win-screen').classList.remove('hidden');
+        else if (type === 'survival') document.getElementById('survival-screen').classList.remove('hidden');
+        else document.getElementById('fail-screen').classList.remove('hidden');
+    }
+
+    function draw() {
+        if(!ctx) return;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0,0,width,height);
+        ctx.save();
+        ctx.translate(-camera.x, -camera.y);
+
+        ctx.fillStyle = '#b2bec3'; ctx.fillRect(0,0,MAP_WIDTH,BIOME_HEIGHT); 
+        ctx.fillStyle = '#0a3d62'; ctx.fillRect(0,BIOME_HEIGHT,MAP_WIDTH,BIOME_HEIGHT); 
+        ctx.fillStyle = '#2d3436'; ctx.fillRect(0,BIOME_HEIGHT*2,MAP_WIDTH,BIOME_HEIGHT); 
+
+        if(score >= MAX_TREATS && camera.y < 600) {
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fillRect(cabin.x+10, cabin.y+10, cabin.w, cabin.h);
+            ctx.fillStyle = '#6d4c41'; ctx.fillRect(cabin.x, cabin.y, cabin.w, cabin.h);
+            ctx.fillStyle = '#3e2723'; ctx.fillRect(cabin.x + 40, cabin.y + 40, 40, 60);
+            ctx.fillStyle = '#ffd700'; ctx.beginPath(); ctx.arc(cabin.x+72, cabin.y+70, 4, 0, 6.28); ctx.fill();
+            ctx.fillStyle = '#b71540'; ctx.beginPath(); ctx.moveTo(cabin.x - 20, cabin.y);
+            ctx.lineTo(cabin.x + cabin.w/2, cabin.y - 60); ctx.lineTo(cabin.x + cabin.w + 20, cabin.y); ctx.fill();
+        }
+
+        for(let w of walls) {
+            if(w.type === 'border') { ctx.fillStyle='#000'; ctx.fillRect(w.x,w.y,w.w,w.h); continue; }
+            if(w.type === 'forest') {
+                ctx.fillStyle = '#079992'; let cx = w.x + w.w/2, bot = w.y + w.h;
+                ctx.beginPath(); ctx.moveTo(cx, w.y); ctx.lineTo(w.x+w.w, bot); ctx.lineTo(w.x, bot); ctx.fill();
+                ctx.fillStyle = '#4b4b4b'; ctx.fillRect(cx-5, bot-5, 10, 5);
+            } else if(w.type === 'grass') {
+                ctx.fillStyle = '#00b894'; ctx.beginPath(); ctx.arc(w.x+w.w/2, w.y+w.h/2, w.w/2, 0, 6.28); ctx.fill();
+            } else if(w.type === 'snow') {
+                ctx.fillStyle = '#74b9ff'; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.fillStyle = 'white'; ctx.fillRect(w.x, w.y, w.w, 10);
+            }
+        }
+
+        ctx.font = "24px serif";
+        for(let t of treats) {
+            let bob = Math.sin(t.osc) * 5;
+            ctx.fillText("🐟", t.x, t.y + bob);
+        }
+
+        for(let d of dogs) {
+            ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.angle);
+            
+            let mainColor = '#d35400'; 
+            let darkColor = '#a04000';
+            let lightColor = '#e67e22';
+            
+            if(d.type === 'forest') {
+                mainColor = '#636e72'; darkColor = '#2d3436'; lightColor = '#b2bec3';
+            }
+            if(d.type === 'snow') {
+                mainColor = '#dfe6e9'; 
+                darkColor = '#636e72'; 
+                lightColor = '#ffffff';
+            }
+
+            ctx.strokeStyle = darkColor; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(-15, 0); ctx.quadraticCurveTo(-25, Math.sin(Date.now()/100)*5, -35, 0); ctx.stroke();
+            ctx.fillStyle = mainColor; ctx.beginPath(); ctx.ellipse(0,0,22,14,0,0,6.28); ctx.fill();
+            ctx.fillStyle = lightColor; ctx.beginPath(); ctx.arc(15,0,12,0,6.28); ctx.fill();
+            ctx.fillStyle = darkColor;
+            ctx.beginPath(); ctx.ellipse(12,-12,5,10,0.5,0,6.28); ctx.fill(); 
+            ctx.beginPath(); ctx.ellipse(12,12,5,10,-0.5,0,6.28); ctx.fill(); 
+            
+            // VISUAL STATE INDICATORS
+            if(graceTimer > 0) {
+                 ctx.fillStyle='white'; ctx.font="16px sans-serif";
+                 ctx.fillText("Zzz", 10, -20);
+            } else if(d.state === 'tired') {
+                 // Show Tired Emoji
+                 ctx.font="20px serif";
+                 ctx.fillText("😓", -10, -25);
+            } else if(d.state === 'chase') {
+                ctx.fillStyle = (d.type === 'snow') ? '#ff7675' : 'white'; 
+                ctx.beginPath(); ctx.arc(18,-4,4,0,6.28); ctx.fill(); ctx.beginPath(); ctx.arc(18,4,4,0,6.28); ctx.fill();
+                ctx.fillStyle='black'; ctx.beginPath(); ctx.arc(19,-4,1,0,6.28); ctx.fill(); ctx.beginPath(); ctx.arc(19,4,1,0,6.28); ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.angle);
+        ctx.shadowColor='rgba(255,255,255,0.4)'; ctx.shadowBlur=15;
+        ctx.strokeStyle='#000'; ctx.lineWidth=8; ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(-12,0); ctx.quadraticCurveTo(-30, Math.sin(Date.now()/150)*10, -40, 0); ctx.stroke();
+        ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(0,0,16,11,0,0,6.28); ctx.fill();
+        ctx.beginPath(); ctx.arc(14,0,12,0,6.28); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(18, -8); ctx.lineTo(26, -18); ctx.lineTo(10, -10); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(18, 8); ctx.lineTo(26, 18); ctx.lineTo(10, 10); ctx.fill();
+        ctx.fillStyle='#00cec9'; 
+        ctx.beginPath(); ctx.arc(18, -4, 3.5, 0, 6.28); ctx.fill(); 
+        ctx.beginPath(); ctx.arc(18, 4, 3.5, 0, 6.28); ctx.fill(); 
+        ctx.restore(); ctx.shadowBlur=0;
+
+        particles.forEach(p => {
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 6.28); ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    function startMusicEngine() {
+        if(!window.AudioContext && !window.webkitAudioContext) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0.25;
+        
+        const lofiFilter = audioCtx.createBiquadFilter();
+        lofiFilter.type = "lowpass";
+        lofiFilter.frequency.value = 1500; 
+        
+        const wobble = audioCtx.createOscillator();
+        wobble.frequency.value = 0.5; 
+        const wobbleGain = audioCtx.createGain();
+        wobbleGain.gain.value = 0.002; 
+
+        masterGain.connect(lofiFilter);
+        lofiFilter.connect(audioCtx.destination);
+
+        const bufferSize = audioCtx.sampleRate * 2; 
+        noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+
+        if(musicInterval) clearInterval(musicInterval);
+        noteCounter = 0;
+        musicInterval = setInterval(playBeat, 600); 
+    }
+
+    function playBeat() {
+        if(!gameActive) return;
+        const t = audioCtx.currentTime;
+        
+        if(noteCounter % 4 === 0) playDrum(t, 'kick');
+        if(noteCounter % 4 === 2) playDrum(t, 'snare');
+        playDrum(t, 'hat');
+        if(Math.random()>0.5) playDrum(t + 0.3, 'hat'); 
+
+        const scale = [349.23, 392.00, 440.00, 523.25, 587.33]; 
+        if(noteCounter % 2 === 0 && Math.random() > 0.3) {
+            let note = scale[Math.floor(Math.random()*scale.length)];
+            if(Math.random()>0.7) note /= 2;
+            playSynth(t, note);
+        }
+        noteCounter++;
+    }
+
+    function playDrum(t, type) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(masterGain);
+
+        if(type === 'kick') {
+            osc.frequency.setValueAtTime(150, t);
+            osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.5);
+            gain.gain.setValueAtTime(1, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+            osc.start(t); osc.stop(t + 0.5);
+        } else if (type === 'snare') {
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = noiseBuffer;
+            const noiseFilter = audioCtx.createBiquadFilter();
+            noiseFilter.type = 'highpass';
+            noiseFilter.frequency.value = 800;
+            noise.connect(noiseFilter);
+            noiseFilter.connect(gain);
+            gain.gain.setValueAtTime(0.4, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+            noise.start(t); noise.stop(t + 0.2);
+        } else if (type === 'hat') {
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = noiseBuffer;
+            const noiseFilter = audioCtx.createBiquadFilter();
+            noiseFilter.type = 'highpass';
+            noiseFilter.frequency.value = 5000;
+            noise.connect(noiseFilter);
+            noiseFilter.connect(gain);
+            gain.gain.setValueAtTime(0.1, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
+            noise.start(t); noise.stop(t + 0.05);
+        }
+    }
+
+    function playSynth(t, freq) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(masterGain);
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.1, t + 0.05); 
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 1.5); 
+        osc.start(t);
+        osc.stop(t + 1.5);
+    }
+
+    function playCrunchSound() {
+        if(!audioCtx) return;
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'square'; o.frequency.setValueAtTime(400, audioCtx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); o.stop(audioCtx.currentTime + 0.1);
+    }
+</script>
+</body>
+</html>
