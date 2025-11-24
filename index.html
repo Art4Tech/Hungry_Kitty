@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hungry Kitty v33</title>
+    <title>Hungry Kitty v34</title>
     <style>
         body {
             margin: 0;
@@ -14,7 +14,6 @@
             user-select: none;
         }
         
-        /* FIXED: Canvas forced to full screen via CSS */
         canvas { 
             display: block; 
             position: absolute;
@@ -133,7 +132,8 @@
             width: 100%;
             height: 150px;
             pointer-events: none;
-            display: flex;
+            /* FIXED: Hidden by default (PC), shown via JS for mobile */
+            display: none; 
             justify-content: space-between;
             padding: 0 30px;
             box-sizing: border-box;
@@ -180,7 +180,7 @@
 <body>
 
     <div id="start-screen" class="screen">
-        <h1>Hungry Kitty v3.2</h1>
+        <h1>Hungry Kitty v3.4</h1>
         <p>Traverse the <b>City</b>, <b>Garden</b>, <b>Forest</b>, and <b>Tundra</b>.</p>
         <p>Goal: Reach the <b>Cozy Cabin</b> at the summit!</p>
         <div class="emoji-art">🐱🏙️🌲🏔️</div>
@@ -255,6 +255,9 @@
     let lastTime = 0;
     let globalTime = 0;
     let graceTimer = 3.0;
+    
+    // FIXED: Restored 'score' variable to prevent crash
+    let score = 0; 
 
     let camera = { x: 0, y: 0, zoom: 1.0 };
     let player = null; 
@@ -269,13 +272,18 @@
     // --- INIT ---
     window.onload = () => {
         canvas = document.getElementById('gameCanvas');
-        // FIXED: Explicitly set canvas size immediately to prevent 300x150 default
+        // Force initial resize
         resize();
         ctx = canvas.getContext('2d', { alpha: false });
         
         window.addEventListener('resize', resize);
         setupInput();
         updateDiffLabel();
+        
+        // FIXED: Detect Touch Device for Controls
+        if('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            document.getElementById('controls-layer').style.display = 'flex';
+        }
     };
 
     window.updateDiffLabel = function() {
@@ -288,7 +296,7 @@
     function startGame() {
         document.getElementById('start-screen').classList.add('hidden');
         
-        // FIXED: Force resize again to be sure
+        // Force resize on start to be safe
         resize();
 
         DIFFICULTY = parseInt(document.getElementById('diff-slider').value);
@@ -318,6 +326,7 @@
     // --- WORLD BUILDER ---
     function initWorld() {
         entities = [];
+        score = 0; // Reset score on start
         
         let pSpeed = 4.0 + (DIFFICULTY * 0.5);
         player = {
@@ -695,7 +704,6 @@
         ctx.fillStyle = "#2d3436"; ctx.fillRect(-15, -60, 30, 40);
     }
 
-    // --- HELPERS ---
     function startDash() { isDashing = true; }
     window.addEventListener('touchend', () => isDashing = false);
     window.addEventListener('mouseup', () => isDashing = false);
