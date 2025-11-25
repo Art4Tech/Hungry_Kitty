@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hungry Kitty v2</title>
+    <title>Hungry Kitty 2</title>
     <style>
         body {
             margin: 0;
@@ -126,7 +126,7 @@
 <body>
 
     <div id="start-screen" class="screen">
-        <h1>Hungry Kitty v2</h1>
+        <h1>Hungry Kitty 2</h1>
         <p>Traverse the <b>City</b>, <b>Garden</b>, <b>Forest</b>, and <b>Tundra</b>.</p>
         <p>Goal: Reach the <b>Cozy Cabin</b> at the summit!</p>
         <div class="emoji-art">🐱🏙️🌲🏔️</div>
@@ -140,7 +140,8 @@
     <div id="fail-screen" class="screen hidden">
         <h1 style="color: #ff7675">CAUGHT!</h1>
         <div class="emoji-art">🙀</div>
-        <p id="fail-msg">The dogs got you...</p>
+        <p id="fail-msg">The puppies were just hungry too...</p>
+		<p>But you didn't have enough snacks!</p>
         <button onclick="location.reload()">Try Again</button>
     </div>
 
@@ -148,12 +149,15 @@
         <h1 style="color: #fab1a0">WELL FED!</h1>
         <div class="emoji-art">😺😸🐶</div>
         <p>Congratulations! You found food for the day!</p>
+		<p>Keep going till you get to the summit!</p>
         <button onclick="location.reload()">Play Again</button>
     </div>
 
     <div id="win-screen" class="screen hidden">
         <h1 style="color: #ffeaa7">KITTY VALHALLA</h1>
         <div class="emoji-art">🔥😺🐶💤</div>
+		<p>Congratulations! You made it to Kitty Valhalla!</p>
+		<p>You found so many snacks.. you shared!</p>
         <p>You and the puppy sleep cozy by the fire.</p>
         <button onclick="location.reload()">Rest Now</button>
     </div>
