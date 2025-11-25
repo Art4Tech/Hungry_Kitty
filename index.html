@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hungry Kitty v34</title>
+    <title>Hungry Kitty v35: Visual Overhaul</title>
     <style>
         body {
             margin: 0;
@@ -17,10 +17,8 @@
         canvas { 
             display: block; 
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             z-index: 1;
         }
         
@@ -54,7 +52,7 @@
         h1 { 
             color: #a29bfe; 
             text-shadow: 0 0 20px #6c5ce7; 
-            font-size: 2.5rem; 
+            font-size: 3rem; 
             margin: 0 0 10px 0; 
             text-align: center; 
         }
@@ -63,7 +61,7 @@
         .emoji-art { font-size: 4rem; margin: 15px 0; animation: float 3s infinite ease-in-out; }
         @keyframes float { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
 
-        /* --- CONTROLS --- */
+        /* CONTROLS */
         .slider-container {
             margin-top: 20px;
             text-align: center;
@@ -119,6 +117,39 @@
             transition: opacity 0.5s;
         }
 
+        /* --- STAMINA BAR (Bottom Center) --- */
+        #stamina-container {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 20px;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            z-index: 150;
+        }
+        #stamina-fill {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #f1c40f, #f39c12);
+            transition: width 0.1s linear;
+        }
+        #stamina-label {
+            position: absolute;
+            top: -25px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: bold;
+            text-shadow: 1px 1px 0 #000;
+        }
+
+        /* --- FOOTER --- */
         #footer {
             position: absolute; bottom: 10px; width: 100%;
             text-align: center; color: rgba(255, 255, 255, 0.4);
@@ -126,14 +157,14 @@
             text-shadow: 1px 1px 2px black;
         }
 
+        /* --- TOUCH CONTROLS --- */
         #controls-layer {
             position: absolute;
             bottom: 20px;
             width: 100%;
             height: 150px;
-            pointer-events: none;
-            /* FIXED: Hidden by default (PC), shown via JS for mobile */
-            display: none; 
+            pointer-events: none; /* Clicks pass through to game/dash btn */
+            display: flex;
             justify-content: space-between;
             padding: 0 30px;
             box-sizing: border-box;
@@ -147,6 +178,7 @@
             border: 2px solid rgba(255,255,255,0.2);
             backdrop-filter: blur(2px);
             position: relative;
+            display: none; /* Hidden on PC */
         }
         #joystick-knob {
             width: 60px; height: 60px;
@@ -158,6 +190,7 @@
             box-shadow: 0 0 10px rgba(255,255,255,0.1);
         }
 
+        /* DASH BUTTON - VISIBLE ON PC AND MOBILE */
         #dash-btn {
             width: 100px; height: 100px;
             background: rgba(255, 107, 107, 0.4);
@@ -172,6 +205,9 @@
             user-select: none;
             margin-top: 20px; 
             transition: background 0.1s;
+            cursor: pointer;
+            /* Push to right if joystick hidden */
+            margin-left: auto; 
         }
         #dash-btn:active { background: rgba(255, 107, 107, 0.7); transform: scale(0.95); }
         
@@ -180,7 +216,7 @@
 <body>
 
     <div id="start-screen" class="screen">
-        <h1>Hungry Kitty v3.4</h1>
+        <h1>Hungry Kitty v3.5</h1>
         <p>Traverse the <b>City</b>, <b>Garden</b>, <b>Forest</b>, and <b>Tundra</b>.</p>
         <p>Goal: Reach the <b>Cozy Cabin</b> at the summit!</p>
         <div class="emoji-art">🐱🏙️🌲🏔️</div>
@@ -218,26 +254,31 @@
         <button onclick="location.reload()">Rest Now</button>
     </div>
 
-    <div id="footer">Created by Arthur Fedderson &copy; Art4Tech 2025</div>
-
     <div id="ui-layer">
         <div id="hud">
             <span id="score-text">🐟 0/25</span>
             <span id="safety-msg">READY?</span>
         </div>
         
+        <div id="stamina-container">
+            <div id="stamina-label">ENERGY</div>
+            <div id="stamina-fill"></div>
+        </div>
+
         <div id="controls-layer">
             <div id="joystick-zone"><div id="joystick-knob"></div></div>
-            <div id="dash-btn" ontouchstart="startDash()" onmousedown="startDash()">⚡</div>
+            <div id="dash-btn" onmousedown="startDash()" onmouseup="endDash()" ontouchstart="startDash()" ontouchend="endDash()">⚡</div>
         </div>
     </div>
+
+    <div id="footer">Created by Arthur Fedderson &copy; Art4Tech 2025</div>
 
     <canvas id="gameCanvas"></canvas>
 
 <script>
     // --- CONFIGURATION ---
     const GAME_WIDTH = 2000;
-    const GAME_HEIGHT = 6000; // 4 Biomes
+    const GAME_HEIGHT = 6000; 
     
     const CONFIG = {
         city:   { dogs: 15, treats: 12, color: '#636e72' }, 
@@ -255,8 +296,6 @@
     let lastTime = 0;
     let globalTime = 0;
     let graceTimer = 3.0;
-    
-    // FIXED: Restored 'score' variable to prevent crash
     let score = 0; 
 
     let camera = { x: 0, y: 0, zoom: 1.0 };
@@ -268,11 +307,12 @@
     let isDashing = false;
 
     let audioCtx, masterGain;
+    // Texture Cache
+    let patterns = {};
 
     // --- INIT ---
     window.onload = () => {
         canvas = document.getElementById('gameCanvas');
-        // Force initial resize
         resize();
         ctx = canvas.getContext('2d', { alpha: false });
         
@@ -280,11 +320,38 @@
         setupInput();
         updateDiffLabel();
         
-        // FIXED: Detect Touch Device for Controls
+        // Touch Detection for Joystick
         if('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-            document.getElementById('controls-layer').style.display = 'flex';
+            document.getElementById('joystick-zone').style.display = 'block';
+            document.getElementById('dash-btn').style.marginLeft = '0'; // Reset alignment
         }
+        
+        // Pre-generate textures
+        generateTextures();
     };
+
+    function generateTextures() {
+        // Create simple noise/pattern textures on hidden canvases
+        patterns.grass = createNoiseTexture('#27ae60', '#2ecc71', 100);
+        patterns.city = createNoiseTexture('#636e72', '#b2bec3', 20); // Asphalt
+        patterns.forest = createNoiseTexture('#0a3d62', '#0c2461', 80);
+        patterns.snow = createNoiseTexture('#dfe6e9', '#ffffff', 100);
+    }
+
+    function createNoiseTexture(baseColor, noiseColor, density) {
+        const c = document.createElement('canvas');
+        c.width = 200; c.height = 200;
+        const x = c.getContext('2d');
+        x.fillStyle = baseColor;
+        x.fillRect(0,0,200,200);
+        x.fillStyle = noiseColor;
+        for(let i=0; i<density; i++) {
+            x.beginPath();
+            x.arc(Math.random()*200, Math.random()*200, Math.random()*3, 0, 6.28);
+            x.fill();
+        }
+        return ctx.createPattern(c, 'repeat');
+    }
 
     window.updateDiffLabel = function() {
         const val = document.getElementById('diff-slider').value;
@@ -295,8 +362,6 @@
 
     function startGame() {
         document.getElementById('start-screen').classList.add('hidden');
-        
-        // Force resize on start to be safe
         resize();
 
         DIFFICULTY = parseInt(document.getElementById('diff-slider').value);
@@ -317,16 +382,13 @@
     function resize() {
         width = window.innerWidth;
         height = window.innerHeight;
-        if(canvas) {
-            canvas.width = width;
-            canvas.height = height;
-        }
+        if(canvas) { canvas.width = width; canvas.height = height; }
     }
 
     // --- WORLD BUILDER ---
     function initWorld() {
         entities = [];
-        score = 0; // Reset score on start
+        score = 0;
         
         let pSpeed = 4.0 + (DIFFICULTY * 0.5);
         player = {
@@ -350,15 +412,8 @@
         spawnBiome(3000, 4500, 'grass', CONFIG.grass);
         spawnBiome(4500, 6000, 'city', CONFIG.city);
 
-        entities.push({
-            type: 'cabin',
-            x: GAME_WIDTH/2,
-            y: 100,
-            width: 120, height: 100
-        });
-        
+        entities.push({ type: 'cabin', x: GAME_WIDTH/2, y: 100, width: 120, height: 100 });
         document.getElementById('score-text').innerText = `🐟 0/${MAX_TREATS}`;
-        
         camera.x = player.x;
         camera.y = player.y;
     }
@@ -367,7 +422,8 @@
         let dogMult = (DIFFICULTY === 1) ? 0.6 : (DIFFICULTY === 3 ? 1.4 : 1.0);
         let count = Math.max(1, Math.floor(settings.dogs * dogMult)); 
         
-        for(let i=0; i<25; i++) {
+        // Decor
+        for(let i=0; i<30; i++) {
             let x = Math.random() * (GAME_WIDTH-100) + 50;
             let y = Math.random() * (maxY - minY) + minY;
             if(y > GAME_HEIGHT - 300) continue; 
@@ -382,6 +438,7 @@
             }
         }
 
+        // Dogs
         for(let i=0; i<count; i++) {
             let speedMod = (DIFFICULTY === 1) ? -0.5 : (DIFFICULTY === 3 ? 0.5 : 0);
             let baseSpd = 2.0 + speedMod;
@@ -402,12 +459,7 @@
 
         let tCount = Math.max(5, Math.floor(settings.treats * (DIFFICULTY === 1 ? 0.8 : 1.2)));
         for(let i=0; i<tCount; i++) {
-            entities.push({
-                type: 'treat',
-                x: Math.random() * (GAME_WIDTH-100) + 50,
-                y: Math.random() * (maxY - minY) + minY,
-                z: 5, phase: Math.random()*Math.PI
-            });
+            entities.push({ type: 'treat', x: Math.random() * (GAME_WIDTH-100) + 50, y: Math.random() * (maxY - minY) + minY, z: 5, phase: Math.random()*Math.PI });
         }
     }
 
@@ -443,6 +495,9 @@
         } else {
             player.stamina = Math.min(player.maxStamina, player.stamina + dt * 10); 
         }
+        
+        // Update UI Bar
+        document.getElementById('stamina-fill').style.width = player.stamina + "%";
 
         const len = Math.sqrt(dx*dx + dy*dy);
         if(len > 0) { dx/=len; dy/=len; }
@@ -477,9 +532,7 @@
             if(e === player) continue;
             let dist = Math.hypot(player.x - e.x, player.y - e.y);
 
-            if(e.type === 'bush') {
-                if(dist < e.width/2) player.hidden = true;
-            }
+            if(e.type === 'bush') { if(dist < e.width/2) player.hidden = true; }
 
             if(e.type === 'obstacle' || e.type === 'cabin') {
                 if(dist < e.width/2 + 10) {
@@ -500,7 +553,6 @@
 
             if(e.type === 'dog') {
                 if(graceTimer > 0) continue;
-
                 let canSee = (dist < e.sightRange);
                 if(Math.abs(player.y - e.y) > 1000) canSee = false;
                 if(player.hidden && e.state !== 'chase' && e.state !== 'sniff') canSee = false;
@@ -514,25 +566,18 @@
                         if(e.sniffTimer <= 0) e.state = 'chase';
                     }
                     else {
-                        e.state = 'chase';
-                        e.chaseTimer = 4.0;
+                        e.state = 'chase'; e.chaseTimer = 4.0;
                         let ang = Math.atan2(player.y - e.y, player.x - e.x);
                         e.x += Math.cos(ang) * e.speed;
                         e.y += Math.sin(ang) * e.speed;
                         e.angle = ang;
                     }
-
-                    if(dist < 20 && e.state !== 'sniff') {
-                        if(score >= MAX_TREATS) showScreen('survival');
-                        else showFailScreen(player.y);
+                    if(dist < 25 && e.state !== 'sniff') {
+                        if(score >= MAX_TREATS) showScreen('survival'); else showFailScreen(player.y);
                     }
                 } else {
-                    e.state = 'roam';
-                    e.timer -= dt;
-                    if(e.timer <= 0) {
-                        e.timer = Math.random()*2 + 1;
-                        e.targetAngle = Math.random()*6.28;
-                    }
+                    e.state = 'roam'; e.timer -= dt;
+                    if(e.timer <= 0) { e.timer = Math.random()*2 + 1; e.targetAngle = Math.random()*6.28; }
                     e.angle += (e.targetAngle - e.angle) * 0.1;
                     e.x += Math.cos(e.angle) * (e.speed * 0.5);
                     e.y += Math.sin(e.angle) * (e.speed * 0.5);
@@ -541,11 +586,7 @@
         }
 
         if(scoreUpdated) document.getElementById('score-text').innerText = `🐟 ${score}/${MAX_TREATS}`;
-
-        if(score >= MAX_TREATS && player.y < 200 && Math.abs(player.x - GAME_WIDTH/2) < 100) {
-            showScreen('win');
-        }
-
+        if(score >= MAX_TREATS && player.y < 200 && Math.abs(player.x - GAME_WIDTH/2) < 100) { showScreen('win'); }
         entities = entities.filter(e => !e.collected);
     }
 
@@ -560,14 +601,18 @@
         ctx.scale(camera.zoom, camera.zoom);
         ctx.translate(-camera.x, -camera.y);
 
-        // Backgrounds
-        ctx.fillStyle = CONFIG.city.color; ctx.fillRect(0, 4500, GAME_WIDTH, 1500);
-        ctx.fillStyle = CONFIG.grass.color; ctx.fillRect(0, 3000, GAME_WIDTH, 1500);
-        ctx.fillStyle = CONFIG.forest.color; ctx.fillRect(0, 1500, GAME_WIDTH, 1500);
-        ctx.fillStyle = CONFIG.snow.color; ctx.fillRect(0, 0, GAME_WIDTH, 1500);
+        // TEXTURED BACKGROUNDS
+        if(patterns.city) ctx.fillStyle = patterns.city; 
+        ctx.fillRect(0, 4500, GAME_WIDTH, 1500);
+        if(patterns.grass) ctx.fillStyle = patterns.grass; 
+        ctx.fillRect(0, 3000, GAME_WIDTH, 1500);
+        if(patterns.forest) ctx.fillStyle = patterns.forest; 
+        ctx.fillRect(0, 1500, GAME_WIDTH, 1500);
+        if(patterns.snow) ctx.fillStyle = patterns.snow; 
+        ctx.fillRect(0, 0, GAME_WIDTH, 1500);
 
         // Road lines
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
         for(let i=4600; i<6000; i+=200) ctx.fillRect(0, i, GAME_WIDTH, 20);
 
         entities.sort((a,b) => (a.y - b.y));
@@ -575,6 +620,16 @@
         for(let e of entities) {
             ctx.save();
             ctx.translate(e.x, e.y);
+            
+            // SHADOWS
+            if(e.type !== 'treat' && e.type !== 'bush') {
+                ctx.save();
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.scale(1, 0.5);
+                ctx.beginPath(); ctx.arc(0, 0, 15, 0, 6.28); ctx.fill();
+                ctx.restore();
+            }
+
             if(e.type === 'player') drawKitty(e);
             else if(e.type === 'dog') drawDog(e);
             else if(e.type === 'treat') drawTreat(e);
@@ -583,16 +638,10 @@
             else if(e.type === 'cabin') drawCabin(e);
             ctx.restore();
         }
-
-        if(player.stamina < 100) {
-            ctx.fillStyle = '#555'; ctx.fillRect(player.x - 20, player.y - 40, 40, 6);
-            ctx.fillStyle = '#f1c40f'; ctx.fillRect(player.x - 20, player.y - 40, 40 * (player.stamina/100), 6);
-        }
-
         ctx.restore();
     }
 
-    // --- DRAWING FUNCTIONS ---
+    // --- UPDATED VISUALS ---
     function drawKitty(p) {
         if(p.hidden) ctx.globalAlpha = 0.5;
         let a = p.angle;
@@ -617,11 +666,13 @@
         ctx.beginPath(); ctx.ellipse(0, 0, 14, 12, 0, 0, 6.28); ctx.fill();
         ctx.beginPath(); ctx.arc(0, -10, 13, 0, 6.28); ctx.fill();
 
+        // Ears
         ctx.beginPath(); 
         if(dir === 'up') { ctx.moveTo(-10,-15); ctx.lineTo(-14,-25); ctx.lineTo(-4,-18); ctx.moveTo(10,-15); ctx.lineTo(14,-25); ctx.lineTo(4,-18); } 
         else { ctx.moveTo(-12,-12); ctx.lineTo(-16,-22); ctx.lineTo(-6,-16); ctx.moveTo(12,-12); ctx.lineTo(16,-22); ctx.lineTo(6,-16); }
         ctx.fill();
 
+        // Face
         if(dir !== 'up') {
             let ex = (dir === 'right' ? 6 : (dir === 'left' ? -6 : 5));
             let nx = (dir === 'right' ? 8 : (dir === 'left' ? -8 : 0));
@@ -652,16 +703,25 @@
         ctx.beginPath(); ctx.arc(0, -10, 13, 0, 6.28); ctx.fill(); 
 
         ctx.fillStyle = (d.biome==='snow' || d.biome==='forest') ? '#2d3436' : color; 
-        if(d.biome === 'city' || d.biome === 'grass') {
-            ctx.beginPath(); ctx.ellipse(-12, -8, 5, 8, 0.5, 0, 6.28); ctx.fill();
-            ctx.beginPath(); ctx.ellipse(12, -8, 5, 8, -0.5, 0, 6.28); ctx.fill();
+        
+        // Different Ear Shapes
+        if(d.biome === 'city') {
+            // Pug ears
+            ctx.beginPath(); ctx.moveTo(-12,-15); ctx.lineTo(-16,-5); ctx.lineTo(-8,-5); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(12,-15); ctx.lineTo(16,-5); ctx.lineTo(8,-5); ctx.fill();
+        } else if(d.biome === 'grass') {
+            // Floppy
+            ctx.beginPath(); ctx.ellipse(-14, -5, 5, 10, 0.3, 0, 6.28); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(14, -5, 5, 10, -0.3, 0, 6.28); ctx.fill();
         } else {
+            // Wolf Pointy
             ctx.beginPath(); ctx.moveTo(-8,-18); ctx.lineTo(-12,-28); ctx.lineTo(-2,-18); ctx.fill();
             ctx.beginPath(); ctx.moveTo(8,-18); ctx.lineTo(12,-28); ctx.lineTo(2,-18); ctx.fill();
         }
 
-        ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(0, -6, 6, 4, 0, 0, 6.28); ctx.fill();
-        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(0, -6, 2.5, 0, 6.28); ctx.fill();
+        // Snout
+        ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(0, -6, 7, 5, 0, 0, 6.28); ctx.fill();
+        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(0, -6, 3, 0, 6.28); ctx.fill();
 
         if(d.state === 'sniff') { ctx.font = '20px serif'; ctx.fillStyle='white'; ctx.fillText('?', 0, -30); }
         else if (d.state === 'chase') { ctx.font = '20px serif'; ctx.fillStyle='red'; ctx.fillText('!', 0, -30); }
@@ -705,8 +765,7 @@
     }
 
     function startDash() { isDashing = true; }
-    window.addEventListener('touchend', () => isDashing = false);
-    window.addEventListener('mouseup', () => isDashing = false);
+    function endDash() { isDashing = false; }
 
     function showScreen(id) {
         gameActive = false;
