@@ -2,461 +2,420 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hungry Kitty: A Visual Tale</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hungry Kitty v37</title>
     <style>
-        :root {
-            --bg-city: linear-gradient(to bottom, #2c3e50, #3498db);
-            --bg-forest: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
-            --bg-snow: linear-gradient(to bottom, #83a4d4, #b6fbff);
-            --bg-cabin: linear-gradient(to bottom, #4b1208, #852913);
-        }
-
         body {
             margin: 0;
             overflow: hidden;
-            background: #111;
-            font-family: 'Georgia', serif;
-            color: white;
+            background-color: #202020; 
+            font-family: 'Verdana', sans-serif;
+            touch-action: none;
             user-select: none;
         }
-
-        /* --- THE STAGE (3D CONTAINER) --- */
-        #stage {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-            perspective: 1000px; /* Creates 3D depth */
-            cursor: crosshair;
+        
+        canvas { 
+            display: block; 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+        }
+        
+        /* VIGNETTE OVERLAY (Mood Lighting) */
+        #vignette {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(0,0,0,0) 50%, rgba(0,0,0,0.6) 100%);
+            pointer-events: none; z-index: 50;
         }
 
-        /* PARALLAX LAYERS */
-        .layer {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            transition: transform 0.1s ease-out;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            pointer-events: none; /* Let clicks pass through unless specific item */
-        }
-
-        /* Background Layer (Sky/Atmosphere) */
-        #layer-bg { z-index: 1; transform: scale(1.1); }
-        
-        /* Midground (Environment/Buildings/Trees) */
-        #layer-mid { z-index: 2; }
-        
-        /* Foreground (Immediate obstacles, Bushes) */
-        #layer-fore { z-index: 3; }
-
-        /* UI Layer (HUD, Text) */
-        #layer-ui { 
-            z-index: 10; 
+        /* UI LAYER */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 40px;
-            box-sizing: border-box;
+            display: flex; flex-direction: column; justify-content: space-between;
+            z-index: 100;
         }
 
-        /* --- GAME OBJECTS (CSS ART) --- */
-        .interactable {
-            pointer-events: auto;
-            cursor: pointer;
-            transition: transform 0.2s, filter 0.2s;
+        /* START SCREEN */
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(20, 20, 25, 0.9);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            pointer-events: all; z-index: 200;
+            transition: opacity 0.5s; backdrop-filter: blur(8px);
         }
-        .interactable:hover {
-            transform: scale(1.1);
-            filter: drop-shadow(0 0 10px gold);
-        }
-
-        /* Treat Item */
-        .item-treat {
-            font-size: 3rem;
-            animation: float 3s infinite ease-in-out;
-        }
-
-        /* Enemy (The Dog) */
-        .enemy {
-            position: absolute;
-            font-size: 15rem;
-            filter: drop-shadow(0 0 20px black);
-            transition: opacity 1s;
-            opacity: 0; /* Hidden by default */
-        }
-        .enemy.active { opacity: 1; }
-
-        /* --- UI ELEMENTS --- */
-        #story-text {
-            background: rgba(0,0,0,0.7);
-            padding: 20px;
-            border-radius: 10px;
-            max-width: 600px;
-            text-align: center;
-            line-height: 1.6;
-            font-size: 1.2rem;
-            margin: 0 auto;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            pointer-events: auto;
-        }
-
-        #hud-stats {
-            display: flex;
-            gap: 20px;
-            font-size: 1.5rem;
-            text-shadow: 0 2px 4px black;
-        }
-
-        #choices {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            margin-top: 20px;
-            pointer-events: auto;
-        }
-
-        .btn {
-            background: linear-gradient(45deg, #6c5ce7, #a29bfe);
-            border: none;
-            padding: 10px 20px;
-            color: white;
-            border-radius: 5px;
-            font-family: inherit;
-            font-size: 1rem;
-            cursor: pointer;
-            box-shadow: 0 4px 0 #5f27cd;
-        }
-        .btn:active { transform: translateY(4px); box-shadow: none; }
-        .btn:disabled { background: #555; box-shadow: none; cursor: not-allowed; }
-
-        /* ANIMATIONS */
-        @keyframes float { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-15px);} }
+        .hidden { display: none !important; }
         
-        /* VISUAL STYLES FOR BIOMES */
-        .scene-city { background: var(--bg-city); }
-        .scene-forest { background: var(--bg-forest); }
-        .scene-snow { background: var(--bg-snow); }
-        .scene-cabin { background: var(--bg-cabin); }
+        h1 { color: #a29bfe; font-size: 3rem; margin: 0 0 10px 0; letter-spacing: 3px; text-shadow: 0 0 15px #6c5ce7; }
+        p { color: #bdc3c7; font-size: 1.1rem; margin: 5px; max-width: 600px; text-align: center; line-height: 1.5; }
+        
+        .slider-container {
+            margin: 20px; padding: 15px; background: rgba(255,255,255,0.05);
+            border-radius: 15px; border: 1px solid rgba(255,255,255,0.1); text-align: center; color: #bdc3c7;
+        }
+        input[type=range] { -webkit-appearance: none; width: 200px; height: 6px; border-radius: 3px; background: #555; margin: 10px 0; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #a29bfe; cursor: pointer; }
 
+        button {
+            margin-top: 30px; padding: 15px 50px; font-size: 1.2rem;
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe); border: none; color: white;
+            border-radius: 50px; cursor: pointer; box-shadow: 0 5px 20px rgba(108, 92, 231, 0.4);
+            font-weight: bold; transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.95); }
+
+        /* GAME HUD */
+        #hud {
+            padding: 20px; font-size: 1.2rem; font-weight: bold; color: white;
+            text-shadow: 1px 1px 2px black; display: flex; justify-content: space-between;
+        }
+
+        /* SUBTITLE BUBBLE (New Text Style) */
+        #subtitle-box {
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7); border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 15px 30px; border-radius: 30px;
+            color: #ecf0f1; font-size: 1rem; text-align: center;
+            min-width: 300px; max-width: 80%;
+            opacity: 0; transition: opacity 0.5s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+
+        /* STAMINA */
+        #stamina-container {
+            position: absolute; top: 60px; left: 20px;
+            width: 150px; height: 10px; background: rgba(0,0,0,0.5);
+            border-radius: 5px; overflow: hidden; border: 1px solid rgba(255,255,255,0.3);
+        }
+        #stamina-fill { width: 100%; height: 100%; background: #f1c40f; transition: width 0.1s linear; }
+
+        /* CONTROLS & FOOTER */
+        #footer {
+            position: absolute; bottom: 10px; width: 100%;
+            text-align: center; color: rgba(255, 255, 255, 0.3);
+            font-size: 0.7rem; pointer-events: none; z-index: 500;
+        }
+
+        #controls-layer {
+            position: absolute; bottom: 40px; width: 100%; height: 150px; pointer-events: none;
+            display: none; justify-content: space-between; padding: 0 30px; box-sizing: border-box;
+        }
+
+        #joystick-zone {
+            width: 120px; height: 120px; background: rgba(255, 255, 255, 0.05); border-radius: 50%;
+            pointer-events: auto; border: 1px solid rgba(255,255,255,0.2); position: relative;
+        }
+        #joystick-knob {
+            width: 50px; height: 50px; background: rgba(255, 255, 255, 0.2); border-radius: 50%;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        }
+        #dash-btn {
+            width: 90px; height: 90px; background: rgba(255, 107, 107, 0.3); border: 2px solid rgba(255, 107, 107, 0.6);
+            border-radius: 50%; pointer-events: auto; display: flex; align-items: center; justify-content: center;
+            font-size: 30px; color: white; margin-top: 15px; cursor: pointer;
+        }
+        #dash-btn:active { background: rgba(255, 107, 107, 0.6); transform: scale(0.95); }
     </style>
 </head>
 <body>
 
-    <div id="stage">
-        <div id="layer-bg" class="layer"></div>
+    <div id="vignette"></div>
 
-        <div id="layer-mid" class="layer"></div>
+    <div id="start-screen" class="screen">
+        <h1>Hungry Kitty</h1>
+        <p>The city is loud. The mountains are quiet.</p>
+        <p>Guide the Void Kitty to the cozy cabin at the summit.</p>
+        
+        <div class="slider-container">
+            <label for="diff-slider">Journey Difficulty: <span id="diff-label" style="color:#a29bfe">Normal</span></label><br>
+            <input type="range" id="diff-slider" min="1" max="3" value="2" step="1" oninput="updateDiffLabel()">
+        </div>
 
-        <div id="layer-fore" class="layer"></div>
+        <button id="start-btn" onclick="startGame()">Begin Journey</button>
+    </div>
 
-        <div id="layer-ui" class="layer">
-            <div id="hud-stats">
-                <span id="hud-treats">🐟 0/15</span>
-                <span id="hud-location">📍 City Streets</span>
-            </div>
+    <div id="fail-screen" class="screen hidden">
+        <h1 style="color: #ff7675">Spooked!</h1>
+        <p id="fail-msg" style="font-size: 1.3rem; margin: 20px;">The dogs were too curious...</p>
+        <button onclick="location.reload()">Try Again</button>
+    </div>
 
-            <div id="story-container">
-                <div id="story-text">
-                    <h1>Hungry Kitty: The Journey</h1>
-                    <p>You are hungry. The city is loud. The wild calls.</p>
-                    <p>Click <b>Start</b> to begin your hunt.</p>
-                    <br>
-                    <button class="btn" onclick="game.start()">Wake Up</button>
-                </div>
-                <div id="choices"></div>
-            </div>
-            
-            <div style="font-size:0.8rem; opacity:0.5;">Created by Arthur Fedderson © Art4Tech 2025</div>
+    <div id="win-screen" class="screen hidden">
+        <h1 style="color: #ffeaa7">Safe & Sound</h1>
+        <p>You reached the cabin. The fire is warm.</p>
+        <p>You share your snacks with the puppy.</p>
+        <button onclick="location.reload()">Sleep</button>
+    </div>
+
+    <div id="ui-layer">
+        <div id="hud">
+            <span id="score-text">🐟 0/25</span>
+        </div>
+        <div id="stamina-container"><div id="stamina-fill"></div></div>
+        
+        <div id="subtitle-box">The air smells like rain...</div>
+
+        <div id="controls-layer">
+            <div id="joystick-zone"><div id="joystick-knob"></div></div>
+            <div id="dash-btn" onmousedown="startDash()" onmouseup="endDash()" ontouchstart="startDash()" ontouchend="endDash()">⚡</div>
         </div>
     </div>
 
+    <div id="footer">Created by Arthur Fedderson &copy; Art4Tech 2025</div>
+    <canvas id="gameCanvas"></canvas>
+
 <script>
-/**
- * HUNGRY KITTY VISUAL ENGINE
- * Uses CSS 3D Transforms for parallax and DOM manipulation for storytelling.
- */
+    // --- CONFIG ---
+    const GAME_WIDTH = 2000;
+    const GAME_HEIGHT = 6000; 
+    
+    // Tuning
+    const CONFIG = {
+        city:   { dogs: 15, treats: 12, color: '#2d3436', accent: '#636e72' }, 
+        grass:  { dogs: 12, treats: 10, color: '#27ae60', accent: '#2ecc71' },
+        forest: { dogs: 20, treats: 8,  color: '#1e272e', accent: '#34495e' }, // Darker forest
+        snow:   { dogs: 25, treats: 6,  color: '#d2dae2', accent: '#ecf0f1' }
+    };
 
-const game = {
-    state: {
-        treats: 0,
-        maxTreats: 15,
-        currentBiome: 0, // 0:City, 1:Forest, 2:Snow, 3:Cabin
-        isHiding: false,
-        dogActive: false
-    },
+    let MAX_TREATS = 25;
+    let DIFFICULTY = 2;
 
-    biomes: [
-        {
-            id: 'city',
-            name: 'Neon City',
-            desc: "The alleyway is cold. Trash cans rattle in the wind. You smell fish nearby.",
-            bgHTML: '<div style="font-size:20rem; opacity:0.3; transform:translateY(50px)">🏙️</div>',
-            midHTML: '<div style="font-size:10rem; margin-left:-300px">🗑️</div><div style="font-size:12rem; margin-left:300px">🚒</div>',
-            foreHTML: '<div style="font-size:15rem; margin-top:400px; margin-left:-500px; filter:blur(2px)">🧱</div>',
-            dog: '🐶', // Pug
-            treats: ['🐟','🦴','🧀']
-        },
-        {
-            id: 'forest',
-            name: 'Whispering Woods',
-            desc: "The city fades. Tall pines block the sky. A twig snaps nearby...",
-            bgHTML: '<div style="font-size:25rem; opacity:0.4;">🌲🌲🌲</div>',
-            midHTML: '<div style="font-size:12rem; margin-left:-400px">🌲</div><div style="font-size:8rem; margin-left:200px">🍄</div>',
-            foreHTML: '<div style="font-size:18rem; margin-top:300px; margin-right:-400px; filter:blur(3px)">🌿</div>',
-            dog: '🐺', // Wolf
-            treats: ['🐦','🦗','🐟']
-        },
-        {
-            id: 'snow',
-            name: 'Frozen Peaks',
-            desc: "The air bites your nose. The snow is deep. You see paw prints that are not yours.",
-            bgHTML: '<div style="font-size:30rem; opacity:0.5; color:white;">🏔️</div>',
-            midHTML: '<div style="font-size:10rem; margin-left:-200px">❄️</div><div style="font-size:12rem; margin-left:400px">🎄</div>',
-            foreHTML: '<div style="font-size:20rem; margin-top:400px; filter:blur(4px); opacity:0.8">🌨️</div>',
-            dog: '🐕‍🦺', // Husky
-            treats: ['🐟','🧊','🥩']
+    // --- STATE ---
+    let canvas, ctx;
+    let gameActive = false;
+    let lastTime = 0, globalTime = 0;
+    let graceTimer = 3.0;
+    let score = 0;
+    let player = null; 
+    let entities = []; 
+    let camera = { x: 0, y: 0, zoom: 1.0 };
+    
+    // Input
+    const input = { x: 0, y: 0, active: false };
+    const keys = { w:false, a:false, s:false, d:false };
+    let isDashing = false;
+
+    // Assets
+    let patterns = {};
+    let audioCtx, masterGain, musicInterval, noteCounter = 0;
+
+    // --- INIT ---
+    window.onload = () => {
+        canvas = document.getElementById('gameCanvas');
+        resize();
+        ctx = canvas.getContext('2d', { alpha: false });
+        
+        window.addEventListener('resize', resize);
+        setupInput();
+        updateDiffLabel();
+        generateTextures();
+
+        // Touch Detection
+        if('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            document.getElementById('controls-layer').style.display = 'flex';
         }
-    ],
+    };
 
-    // --- INITIALIZATION ---
-    init: function() {
-        // Parallax Logic
-        document.addEventListener('mousemove', (e) => {
-            const x = (window.innerWidth - e.pageX * 2) / 100;
-            const y = (window.innerHeight - e.pageY * 2) / 100;
+    function generateTextures() {
+        // Pre-render noise textures for performance
+        patterns.grass = createPattern('#27ae60', 'noise', 150);
+        patterns.city = createPattern('#2d3436', 'grid', 0);
+        patterns.forest = createPattern('#1e272e', 'leaf', 100);
+        patterns.snow = createPattern('#d2dae2', 'crystal', 100);
+    }
 
-            // Apply shifts (Background moves slow, Foreground moves fast)
-            document.getElementById('layer-bg').style.transform = `translate(${x}px, ${y}px) scale(1.1)`;
-            document.getElementById('layer-mid').style.transform = `translate(${x*2}px, ${y*2}px)`;
-            document.getElementById('layer-fore').style.transform = `translate(${x*4}px, ${y*4}px)`;
-        });
-    },
-
-    start: function() {
-        this.audio.init();
-        this.loadScene(0);
-    },
-
-    // --- SCENE MANAGER ---
-    loadScene: function(index) {
-        this.state.currentBiome = index;
-        const biome = this.biomes[index];
-        const stage = document.getElementById('stage');
-
-        // 1. Set Visuals
-        stage.className = `scene-${biome.id}`;
-        document.getElementById('layer-bg').innerHTML = biome.bgHTML;
-        document.getElementById('layer-mid').innerHTML = biome.midHTML;
-        document.getElementById('layer-fore').innerHTML = biome.foreHTML;
+    function createPattern(color, type, density) {
+        const c = document.createElement('canvas');
+        c.width = 200; c.height = 200;
+        const x = c.getContext('2d');
+        x.fillStyle = color;
+        x.fillRect(0,0,200,200);
         
-        // 2. Set Text
-        this.ui.updateText(biome.name, biome.desc);
-        document.getElementById('hud-location').innerText = "📍 " + biome.name;
-
-        // 3. Spawn Treats (Interactive Elements)
-        this.spawnTreats(biome);
-
-        // 4. Audio Change
-        this.audio.playTheme(biome.id);
-
-        // 5. Random Event Trigger (Dog Encounter)
-        this.state.dogActive = false;
-        setTimeout(() => {
-            if(Math.random() > 0.3) this.triggerDogEncounter(biome);
-        }, 2000);
-    },
-
-    spawnTreats: function(biome) {
-        const layer = document.getElementById('layer-mid');
-        // Add clickable treats
-        for(let i=0; i<3; i++) {
-            const el = document.createElement('div');
-            el.innerHTML = biome.treats[i];
-            el.className = 'interactable item-treat';
-            el.style.position = 'absolute';
-            el.style.left = (20 + Math.random()*60) + '%';
-            el.style.top = (40 + Math.random()*40) + '%';
-            
-            el.onclick = (e) => {
-                if(this.state.dogActive) return; // Can't eat while hunted
-                e.target.remove();
-                this.collectTreat();
-            };
-            layer.appendChild(el);
-        }
-    },
-
-    collectTreat: function() {
-        this.state.treats++;
-        this.ui.updateHUD();
-        this.audio.playSFX('crunch');
-        
-        // Check Progression
-        if(this.state.treats === 5) {
-            this.ui.showChoice("You are getting full.", "Move to Forest", () => this.loadScene(1));
-        } else if (this.state.treats === 10) {
-            this.ui.showChoice("The air is getting colder.", "Climb Mountain", () => this.loadScene(2));
-        } else if (this.state.treats >= 15) {
-            this.triggerWin();
-        }
-    },
-
-    // --- DOG ENCOUNTER SYSTEM ---
-    triggerDogEncounter: function(biome) {
-        this.state.dogActive = true;
-        
-        // Visuals
-        const dogEl = document.createElement('div');
-        dogEl.className = 'enemy active';
-        dogEl.innerHTML = biome.dog;
-        dogEl.style.left = '50%';
-        dogEl.style.top = '50%';
-        dogEl.style.transform = 'translate(-50%, -50%)';
-        document.getElementById('layer-fore').appendChild(dogEl);
-
-        // Audio
-        this.audio.playSFX('bark');
-
-        // Text
-        this.ui.updateText("DANGER!", `A wild ${biome.id === 'city' ? 'Pug' : 'Wolf'} appears! It sniffs the air.`);
-
-        // Choices
-        const choices = document.getElementById('choices');
-        choices.innerHTML = '';
-        
-        const btnHide = document.createElement('button');
-        btnHide.className = 'btn';
-        btnHide.innerText = "Hide in Bush 🌿";
-        btnHide.onclick = () => this.resolveEncounter('hide', dogEl);
-        
-        const btnRun = document.createElement('button');
-        btnRun.className = 'btn';
-        btnRun.innerText = "Run Away ⚡";
-        btnRun.onclick = () => this.resolveEncounter('run', dogEl);
-
-        choices.appendChild(btnHide);
-        choices.appendChild(btnRun);
-    },
-
-    resolveEncounter: function(action, dogEl) {
-        const success = Math.random() > 0.3; // 70% success rate
-        
-        if(success) {
-            this.ui.updateText("Safe!", "You escaped the dog.");
-            dogEl.style.opacity = 0;
-            setTimeout(() => dogEl.remove(), 1000);
-            this.state.dogActive = false;
-            document.getElementById('choices').innerHTML = ''; // Clear buttons
-        } else {
-            this.triggerFail();
-        }
-    },
-
-    triggerFail: function() {
-        document.body.style.background = 'black';
-        document.getElementById('stage').style.display = 'none';
-        alert("CAUGHT! The dog was too fast. Refresh to try again.");
-        location.reload();
-    },
-
-    triggerWin: function() {
-        document.getElementById('layer-bg').innerHTML = '<div style="font-size:30rem; opacity:0.2;">🏠</div>';
-        this.ui.updateText("KITTY VALHALLA", "You reached the cabin! You share your 15 treats with the puppy and sleep by the fire. <br><br><b>THE END</b>");
-        document.getElementById('choices').innerHTML = '<button class="btn" onclick="location.reload()">Replay</button>';
-        this.audio.playTheme('cabin');
-    },
-
-    // --- UI HELPER ---
-    ui: {
-        updateText: function(title, body) {
-            const container = document.getElementById('story-text');
-            container.innerHTML = `<h2>${title}</h2><p>${body}</p>`;
-        },
-        updateHUD: function() {
-            document.getElementById('hud-treats').innerText = `🐟 ${game.state.treats}/${game.state.maxTreats}`;
-        },
-        showChoice: function(text, btnLabel, callback) {
-            const c = document.getElementById('choices');
-            c.innerHTML = `<p style="width:100%">${text}</p>`;
-            const btn = document.createElement('button');
-            btn.className = 'btn';
-            btn.innerText = btnLabel;
-            btn.onclick = callback;
-            c.appendChild(btn);
-        }
-    },
-
-    // --- AUDIO ENGINE (Web Audio API) ---
-    audio: {
-        ctx: null,
-        osc: null,
-        
-        init: function() {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            this.ctx = new AudioContext();
-            this.master = this.ctx.createGain();
-            this.master.gain.value = 0.3;
-            this.master.connect(this.ctx.destination);
-        },
-
-        playTheme: function(type) {
-            if(!this.ctx) return;
-            // Simple ambient drone generation
-            if(this.osc) this.osc.stop();
-            
-            this.osc = this.ctx.createOscillator();
-            this.osc.type = 'triangle';
-            
-            if(type === 'city') this.osc.frequency.value = 100; // Low hum
-            if(type === 'forest') this.osc.frequency.value = 150; // Mid nature
-            if(type === 'snow') this.osc.frequency.value = 200; // High wind
-            if(type === 'cabin') this.osc.frequency.value = 220; // Warm A3
-
-            // LFO for wobble (Lofi feel)
-            const lfo = this.ctx.createOscillator();
-            lfo.frequency.value = 0.5;
-            const lfoGain = this.ctx.createGain();
-            lfoGain.gain.value = 5;
-            lfo.connect(lfoGain);
-            lfoGain.connect(this.osc.frequency);
-            lfo.start();
-
-            this.osc.connect(this.master);
-            this.osc.start();
-        },
-
-        playSFX: function(type) {
-            if(!this.ctx) return;
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-
-            if(type === 'crunch') {
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(600, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.1);
-                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-                gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.1);
-                osc.start(); osc.stop(this.ctx.currentTime + 0.1);
-            } else if (type === 'bark') {
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
-                osc.frequency.linearRampToValueAtTime(100, this.ctx.currentTime + 0.2);
-                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-                gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.2);
-                osc.start(); osc.stop(this.ctx.currentTime + 0.2);
+        x.fillStyle = 'rgba(255,255,255,0.05)';
+        if(type === 'grid') {
+            x.fillStyle = 'rgba(255,255,255,0.05)';
+            x.fillRect(0, 190, 200, 10); x.fillRect(190, 0, 10, 200); // Pavement lines
+        } else if (type === 'noise') {
+            x.fillStyle = '#2ecc71';
+            for(let i=0; i<density; i++) {
+                x.beginPath(); x.arc(Math.random()*200, Math.random()*200, Math.random()*4, 0, 6.28); x.fill();
+            }
+        } else if (type === 'leaf') {
+            x.fillStyle = '#111';
+            for(let i=0; i<density; i++) {
+                x.beginPath(); x.arc(Math.random()*200, Math.random()*200, 3, 0, 6.28); x.fill();
             }
         }
+        return ctx.createPattern(c, 'repeat');
     }
-};
 
-// Start listening for mouse movement immediately
-game.init();
+    window.updateDiffLabel = function() {
+        const val = document.getElementById('diff-slider').value;
+        const label = document.getElementById('diff-label');
+        const labels = ["Relaxed", "Normal", "Wild"];
+        label.innerText = labels[val-1];
+    }
 
-</script>
-</body>
-</html>
+    function startGame() {
+        document.getElementById('start-screen').classList.add('hidden');
+        resize();
+
+        DIFFICULTY = parseInt(document.getElementById('diff-slider').value);
+        if(DIFFICULTY === 1) MAX_TREATS = 15;
+        if(DIFFICULTY === 2) MAX_TREATS = 25;
+        if(DIFFICULTY === 3) MAX_TREATS = 35;
+
+        initWorld();
+        try { initAudio(); } catch(e) {}
+        
+        gameActive = true;
+        lastTime = Date.now();
+        updateSubtitle("The dogs are waking up... Stay quiet.");
+        document.getElementById('subtitle-box').style.opacity = 1;
+        requestAnimationFrame(loop);
+    }
+
+    function resize() {
+        if(canvas) { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    }
+
+    function initWorld() {
+        entities = [];
+        score = 0;
+        
+        // Tuned Slower Speeds for "Cozy" feel
+        let pSpeed = 3.0 + (DIFFICULTY * 0.5);
+        player = {
+            type: 'player',
+            x: GAME_WIDTH / 2, y: GAME_HEIGHT - 300, z: 0,
+            width: 30, height: 30, speed: pSpeed,
+            vx: 0, vy: 0, angle: -Math.PI/2, state: 'idle',
+            stamina: 100, maxStamina: 100, hidden: false
+        };
+        entities.push(player);
+
+        spawnBiome(0, 1500, 'snow', CONFIG.snow);
+        spawnBiome(1500, 3000, 'forest', CONFIG.forest);
+        spawnBiome(3000, 4500, 'grass', CONFIG.grass);
+        spawnBiome(4500, 6000, 'city', CONFIG.city);
+
+        entities.push({ type: 'cabin', x: GAME_WIDTH/2, y: 100, width: 120, height: 100 });
+        
+        document.getElementById('score-text').innerText = `🐟 0/${MAX_TREATS}`;
+        camera.x = player.x; camera.y = player.y;
+    }
+
+    function spawnBiome(minY, maxY, type, settings) {
+        let dogMult = (DIFFICULTY === 1) ? 0.6 : (DIFFICULTY === 3 ? 1.4 : 1.0);
+        let count = Math.max(1, Math.floor(settings.dogs * dogMult)); 
+        
+        for(let i=0; i<25; i++) {
+            let x = Math.random() * (GAME_WIDTH-100) + 50;
+            let y = Math.random() * (maxY - minY) + minY;
+            if(y > GAME_HEIGHT - 400) continue; 
+
+            if(Math.random() > 0.6) {
+                entities.push({ type: 'bush', biome: type, x: x, y: y, width: 60 });
+            } else {
+                let obsType = 'rock';
+                if(type === 'city') obsType = (Math.random()>0.5 ? 'hydrant' : 'trash');
+                if(type === 'forest') obsType = 'tree';
+                entities.push({ type: 'obstacle', subtype: obsType, x: x, y: y, width: 30 });
+            }
+        }
+
+        for(let i=0; i<count; i++) {
+            let speedMod = (DIFFICULTY === 1) ? -0.5 : (DIFFICULTY === 3 ? 0.5 : 0);
+            let baseSpd = 1.8 + speedMod; // Slower base speed
+            if(type === 'snow') baseSpd += 0.4; 
+
+            entities.push({
+                type: 'dog', biome: type,
+                x: Math.random() * (GAME_WIDTH-100) + 50,
+                y: Math.random() * (maxY - minY) + minY,
+                speed: baseSpd, state: 'roam',
+                angle: Math.random()*6.28,
+                timer: 0, chaseTimer: 0, sniffTimer: 0,
+                sightRange: (type === 'city' ? 250 : 350),
+                minY: minY, maxY: maxY
+            });
+        }
+
+        let tCount = Math.max(5, Math.floor(settings.treats * (DIFFICULTY === 1 ? 0.8 : 1.2)));
+        for(let i=0; i<tCount; i++) {
+            entities.push({ type: 'treat', x: Math.random() * (GAME_WIDTH-100) + 50, y: Math.random() * (maxY - minY) + minY, z: 5, phase: Math.random()*Math.PI });
+        }
+    }
+
+    function loop() {
+        if(!gameActive) return;
+        const now = Date.now();
+        const dt = Math.min((now - lastTime)/1000, 0.1);
+        lastTime = now;
+        globalTime += dt;
+        update(dt);
+        render();
+        requestAnimationFrame(loop);
+    }
+
+    function update(dt) {
+        if(graceTimer > 0) {
+            graceTimer -= dt;
+            if(graceTimer <= 0) updateSubtitle("The wild is awake. Be careful.");
+        }
+
+        // Input & Move
+        let dx = input.x; let dy = input.y;
+        if(keys.w) dy = -1; if(keys.s) dy = 1; if(keys.a) dx = -1; if(keys.d) dx = 1;
+
+        let currentSpeed = player.speed;
+        if(isDashing && player.stamina > 0) {
+            currentSpeed *= 1.6; player.stamina -= dt * 30; 
+        } else {
+            player.stamina = Math.min(player.maxStamina, player.stamina + dt * 15); 
+        }
+        document.getElementById('stamina-fill').style.width = player.stamina + "%";
+
+        const len = Math.sqrt(dx*dx + dy*dy);
+        if(len > 0) { dx/=len; dy/=len; }
+
+        player.vx = dx * currentSpeed; player.vy = dy * currentSpeed;
+        player.x += player.vx; player.y += player.vy;
+        player.x = Math.max(20, Math.min(GAME_WIDTH-20, player.x));
+        player.y = Math.max(20, Math.min(GAME_HEIGHT-20, player.y));
+
+        if(Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1) {
+            player.angle = Math.atan2(dy, dx); player.state = 'run';
+        } else { player.state = 'idle'; }
+
+        // Camera Smooth Follow
+        let targetZ = 1.0;
+        if(player.hidden) targetZ = 1.2; else if(player.state === 'run') targetZ = 0.85;
+        camera.zoom += (targetZ - camera.zoom) * 0.03;
+        camera.x += (player.x - camera.x) * 0.08; camera.y += (player.y - camera.y) * 0.08;
+
+        player.hidden = false;
+        let scoreUpdated = false;
+
+        for(let e of entities) {
+            if(e === player) continue;
+            let dist = Math.hypot(player.x - e.x, player.y - e.y);
+
+            if(e.type === 'bush') { if(dist < e.width/2) player.hidden = true; }
+
+            if(e.type === 'obstacle' || e.type === 'cabin') {
+                if(dist < e.width/2 + 15) {
+                    let ang = Math.atan2(player.y - e.y, player.x - e.x);
+                    player.x = e.x + Math.cos(ang) * (e.width/2 + 15);
+                    player.y = e.y + Math.sin(ang) * (e.width/2 + 15);
+                }
+            }
+
+            if(e.type === 'treat' && !e.collected) {
+                if(dist < 40) {
+                    e.collected = true; score++; scoreUpdated = true;
+                    playCrunchSound();
+                }
+                e.z = 5 + Math.sin(globalTime*3 + e.phase)*4;
+            }
+
+            if(e.type === 'dog') {
+                if(graceTimer >
